@@ -1,0 +1,49 @@
+SOFTWARE REQUIREMENT SPECIFICATIONS
+AUTHENTIC ARTS
+System: Interactive Arts Web application & curated exhibition platform for various artists.
+CHAPTER 1: INTRODUCTION AND CORE DIFFERENTIATORS
+Project Purpose
+To create a web application that is interactive for all artists who can partner with us by uploading their arts, and one that is interactive to customers willing to buy such artistic work.
+Key Differentiators or Core Identity
+Our website will be user-friendly and will feature a couple of things (system logic) as listed below:
+Artists will be able to upload their media, the product description as well as the origin and authenticity of the art (mandatory), maybe even the inspiration, all of which will have to be verified by our team for authenticity before being publicly published.
+Users will be able to provide reviews of the art after purchase.
+Users will be able to view all products from our website in the Collections page (and all other pages), but upon signing up, they will be asked a couple of questions for personalization, like the art they love seeing, and then we will personalize it to their liking. They can update their profiles within the app even after signing in.
+Payment Integrated System for ordering the art. Lipana by M-Pesa (prompt style method) or PayPal integration.
+Sign-in methods will be through email authentication or via Google. OTP verification should be enabled for the emails (not via SMS because of API integration costs).
+The system will prioritize the best-selling arts. To buy the arts, you have to sign in/create an account if one hasn’t been created or log in to access the buy or add to cart option.
+Signing in will give the user access to personalized data depending on what products they have viewed and interacted with before.
+Signing in will only happen after the user has accepted the Terms and Conditions of our company by checking the box “I have read and accepted the terms and conditions” with a link to the T&C page in a new tab. Only then will the Sign In box be luminous (not greyed out).
+First time, 20% discount for all customers using our website to buy or purchase art.
+Caching is done via Redis.
+Backend will be handled by Supabase and FrontEnd by React, primarily as well as styling by Tailwind.
+The website can be toggled into a dark theme and a light theme but the light theme is the default theme upon visiting the site.
+The primary colors of buttons will be blue. Textboxes will be grey and one can only sign in or up after filling all the details. Such as the email and password (for those not using Google). Password should have a minimum of 8 characters.
+The web application can also allow visitors to zoom in on texture and brushstrokes.
+Since we will also be selling physical prints and canvases, we can design the web application to allow users and buyers to visualize how the piece looks in a room.
+To increase optionality and flexibility, customers will have control over the framing, gallery wraps or rolled-up tube shipping, but any customization will only be based on available materials. For any specific customization not provided or available, the customer will have to inquire and be directed to our email, whatsapp and phone number to communicate directly with us and we’ll get in touch as soon as we can.
+There will be newsletter signups for collectors and artists to stay updated on the new releases, upcoming exhibitions and studio news.
+Social media integration where the web app will provide links to our active social media accounts including X, Facebook, Instagram, WhatsApp, YouTube and TikTok.
+The web application will also provide alt text for all the arts for the visually impared users, screen readers and some unloaded images/arts.
+CHAPTER 2: USER ROLES AND ACCESS LEVELS
+2.1 Customer (Art lovers and collectors)
+They will be able to:
+Get personalized feedback on arts based on the ones they have interacted with upon signing in.
+Add products to the cart and check out once they finish their shopping spree
+Provide a review of the products they’ve bought and maybe rate them on a five-star basis
+2.2 Artist or Creator
+They will be able to:
+a) Upload arts and designs for review by our team
+b) Once a customer has bought their design, the amount will be credited to their system wallet, where they can withdraw the amount to M-Pesa or PayPal after a 15% commission has been deducted by our team for our role in marketing and providing such a platform for the sale.
+c) Will have a dashboard to show the analysis of their products so that they know which ones are selling more and vice versa and to know where to improve the designs also according to the reviews.
+d) They will be able to switch between the User profile and the Artist profile (which will be created upon their creation of a User profile). So technically, once the first User authentication and sign-up is complete, they have an option on the profile page to create a new profile as a Creator/Artist.
+e) Upon uploading of the art, the artist should declare the availability of the art and how many pieces are available for sale (mandatory). The system will update availability based on the quantity and determine whether the art is available for sale (the quantity will not be displayed, but it is essential in the BackEnd to determine whether the art is available or not {BackEnd logic}).
+2.3 The Curator/Platform Administrator
+- Full CRM access to all users, both artists/creators and normal users
+CHAPTER 3: PWA SPECIFIC REQUIREMENTS (OFFLINE & INSTALLATION)
+3.1 Web app manifest
+3.2 Offline Gallery Access (Caching Strategy)
+CHAPTER 4: DATABASE SCHEMAS (ARTISTIC DOMAIN)
+4.1 Table
+CHAPTER 5: PAYMENT INTEGRATION
+CHAPTER 6: MVP IMPLEMENTATION PHASES (SPRINTS)
