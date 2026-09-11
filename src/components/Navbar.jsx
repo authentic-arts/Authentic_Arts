@@ -47,7 +47,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-6">
             <NavLink to="/" className={navLinkClass} end>Home</NavLink>
             <NavLink to="/collections" className={navLinkClass}>Collections</NavLink>
-            {user?.role === 'artist' && (
+            {(user?.role === 'artist' || user?.role === 'admin') && (
               <>
                 <NavLink to="/artist/dashboard" className={navLinkClass}>Dashboard</NavLink>
                 <NavLink to="/artist/upload" className={navLinkClass}>Upload</NavLink>
@@ -156,7 +156,7 @@ export default function Navbar() {
         <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-4 py-4 space-y-2">
           <NavLink to="/" className={navLinkClass} end onClick={() => setMenuOpen(false)}>Home</NavLink>
           <div className="block"><NavLink to="/collections" className={navLinkClass} onClick={() => setMenuOpen(false)}>Collections</NavLink></div>
-          {user?.role === 'artist' && (
+          {(user?.role === 'artist' || user?.role === 'admin') && (
             <>
               <div className="block"><NavLink to="/artist/dashboard" className={navLinkClass} onClick={() => setMenuOpen(false)}>Dashboard</NavLink></div>
               <div className="block"><NavLink to="/artist/upload" className={navLinkClass} onClick={() => setMenuOpen(false)}>Upload Art</NavLink></div>

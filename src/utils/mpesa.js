@@ -93,7 +93,7 @@ export async function initiateSTKPush({ phone, amount, reference = 'AuthenticArt
 }
 
 /**
- * Polls Daraja STK Query via Supabase Edge Function until completion or timeout.
+ * Polls Daraja STK Query & Supabase DB Status until completion or timeout.
  */
 export async function pollSTKStatus({ checkoutRequestId, maxAttempts = 20, intervalMs = 3000, onStatusUpdate = () => { } }) {
   if (!checkoutRequestId) {
@@ -101,8 +101,53 @@ export async function pollSTKStatus({ checkoutRequestId, maxAttempts = 20, inter
   }
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    // 1. Check Supabase DB first (Updated asynchronously by Safaricom Callback Webhook)
+    if (supabase) {
+      try {
+        const { data: dbTx } = await supabase
+          .from('mpesa_transactions')
+          .select('status, result_code, result_desc, mpesa_receipt_number')
+          .eq('checkout_request_id', checkoutRequestId)
+          .maybeSingle();
 
+        if (dbTx?.status === 'completed') {
+          return {
+            status: 'completed',
+            resultCode: 0,
+            receiptNumber: dbTx.mpesa_receipt_number || 'SUCCESS',
+            message: dbTx.result_desc || 'Payment confirmed successfully!',
+          };
+        }
+
+        if (dbTx?.status === 'cancelled') {
+          return {
+            status: 'cancelled',
+            resultCode: 1032,
+            message: dbTx.result_desc || 'Payment was cancelled on your phone.',
+          };
+        }
+
+        if (dbTx?.status === 'timeout') {
+          return {
+            status: 'timeout',
+            resultCode: 1037,
+            message: dbTx.result_desc || 'Payment request timed out.',
+          };
+        }
+
+        if (dbTx?.status === 'failed') {
+          return {
+            status: 'failed',
+            resultCode: dbTx.result_code || 1,
+            message: dbTx.result_desc || 'Payment failed.',
+          };
+        }
+      } catch (dbErr) {
+        console.warn('Database polling check warning:', dbErr);
+      }
+    }
+
+    // 2. Query Daraja via Supabase Edge Function
     try {
       const { data, error } = await supabase.functions.invoke('mpesa', {
         body: {
@@ -111,79 +156,79 @@ export async function pollSTKStatus({ checkoutRequestId, maxAttempts = 20, inter
         },
       });
 
-      if (error || (!data && !data?.ResultCode && data?.ResultCode !== 0)) {
-        onStatusUpdate({ attempt, status: 'polling', message: 'Waiting for PIN on phone...' });
-        continue;
-      }
+      if (!error && data) {
+        const resultCode = data.ResultCode !== undefined ? Number(data.ResultCode) : (data.resultCode !== undefined ? Number(data.resultCode) : null);
+        const desc = data.ResultDesc || data.resultDesc || data.errorMessage || data.error || '';
+        const isProcessing = desc.toLowerCase().includes('processing');
 
-      const resultCode = Number(data.ResultCode ?? data.resultCode);
+        if (resultCode === 0) {
+          const receipt = data.MpesaReceiptNumber || data.mpesaReceiptNumber || 'MPESA' + Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      if (resultCode === 0) {
-        const receipt = data.MpesaReceiptNumber || data.mpesaReceiptNumber || 'MPESA' + Math.random().toString(36).substring(2, 8).toUpperCase();
+          if (supabase) {
+            await supabase.from('mpesa_transactions')
+              .update({
+                status: 'completed',
+                result_code: 0,
+                result_desc: desc || 'The service request is processed successfully.',
+                mpesa_receipt_number: receipt,
+              })
+              .eq('checkout_request_id', checkoutRequestId);
+          }
 
-        if (supabase) {
-          await supabase.from('mpesa_transactions')
-            .update({
-              status: 'completed',
-              result_code: 0,
-              result_desc: data.ResultDesc || 'The service request is processed successfully.',
-              mpesa_receipt_number: receipt,
-            })
-            .eq('checkout_request_id', checkoutRequestId);
+          return {
+            status: 'completed',
+            resultCode: 0,
+            receiptNumber: receipt,
+            message: desc || 'Payment confirmed successfully!',
+          };
         }
 
-        return {
-          status: 'completed',
-          resultCode: 0,
-          receiptNumber: receipt,
-          message: data.ResultDesc || 'Payment confirmed successfully!',
-        };
-      }
-
-      if (resultCode === 1032) {
-        if (supabase) {
-          await supabase.from('mpesa_transactions')
-            .update({ status: 'cancelled', result_code: 1032, result_desc: 'Request cancelled by user' })
-            .eq('checkout_request_id', checkoutRequestId);
+        if (resultCode === 1032) {
+          if (supabase) {
+            await supabase.from('mpesa_transactions')
+              .update({ status: 'cancelled', result_code: 1032, result_desc: 'Request cancelled by user' })
+              .eq('checkout_request_id', checkoutRequestId);
+          }
+          return {
+            status: 'cancelled',
+            resultCode: 1032,
+            message: 'Payment was cancelled on your phone.',
+          };
         }
-        return {
-          status: 'cancelled',
-          resultCode: 1032,
-          message: 'Payment was cancelled on your phone.',
-        };
-      }
 
-      if (resultCode === 1037) {
-        if (supabase) {
-          await supabase.from('mpesa_transactions')
-            .update({ status: 'timeout', result_code: 1037, result_desc: 'Transaction timeout' })
-            .eq('checkout_request_id', checkoutRequestId);
+        if (resultCode === 1037) {
+          if (supabase) {
+            await supabase.from('mpesa_transactions')
+              .update({ status: 'timeout', result_code: 1037, result_desc: 'Transaction timeout' })
+              .eq('checkout_request_id', checkoutRequestId);
+          }
+          return {
+            status: 'timeout',
+            resultCode: 1037,
+            message: 'Payment request timed out. Please try again.',
+          };
         }
-        return {
-          status: 'timeout',
-          resultCode: 1037,
-          message: 'Payment request timed out. Please try again.',
-        };
-      }
 
-      if (!isNaN(resultCode) && resultCode !== 0) {
-        if (supabase) {
-          await supabase.from('mpesa_transactions')
-            .update({ status: 'failed', result_code: resultCode, result_desc: data.ResultDesc || 'Payment failed' })
-            .eq('checkout_request_id', checkoutRequestId);
+        // Return error only if non-zero resultCode is final and NOT "still under processing"
+        if (resultCode !== null && !isNaN(resultCode) && !isProcessing) {
+          if (supabase) {
+            await supabase.from('mpesa_transactions')
+              .update({ status: 'failed', result_code: resultCode, result_desc: desc || 'Payment failed' })
+              .eq('checkout_request_id', checkoutRequestId);
+          }
+          return {
+            status: 'failed',
+            resultCode,
+            message: desc || `Payment failed with code ${resultCode}`,
+          };
         }
-        return {
-          status: 'failed',
-          resultCode,
-          message: data.ResultDesc || `Payment failed with code ${resultCode}`,
-        };
       }
-
-      onStatusUpdate({ attempt, status: 'polling', message: 'Waiting for PIN on phone...' });
     } catch (err) {
       console.warn(`Query attempt ${attempt} failed:`, err);
-      onStatusUpdate({ attempt, status: 'polling', message: 'Checking payment status...' });
     }
+
+    onStatusUpdate({ attempt, status: 'polling', message: 'Waiting for PIN on phone...' });
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 
   return {

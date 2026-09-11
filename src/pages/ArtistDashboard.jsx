@@ -43,7 +43,7 @@ export default function ArtistDashboard() {
       });
   }, [user?.id]);
 
-  if (!user || user.role !== 'artist') {
+  if (!user || (user.role !== 'artist' && user.role !== 'admin')) {
     navigate('/profile');
     return null;
   }

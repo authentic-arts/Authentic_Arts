@@ -35,7 +35,7 @@ export default function ArtistUpload() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  if (!user || user.role !== 'artist') {
+  if (!user || (user.role !== 'artist' && user.role !== 'admin')) {
     navigate('/profile');
     return null;
   }

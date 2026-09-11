@@ -4,3 +4,4 @@ dist/
 .env.* 
 .vscode/ 
 ~$*.docx 
+node_modules

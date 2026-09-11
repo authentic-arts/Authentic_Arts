@@ -102,6 +102,14 @@ export default function Profile() {
                   Artist Dashboard
                 </button>
               )}
+              {user.role === 'admin' && (
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors text-center shadow-md shadow-purple-600/20"
+                >
+                  Admin Control Panel
+                </button>
+              )}
             </div>
           </div>
 
