@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Footer() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('collector');
   const [subscribed, setSubscribed] = useState(false);
@@ -86,9 +89,62 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Artists</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link to="/signup" className="hover:text-blue-400 transition-colors">Join as Artist</Link></li>
-              <li><Link to="/artist/upload" className="hover:text-blue-400 transition-colors">Upload Artwork</Link></li>
-              <li><Link to="/artist/dashboard" className="hover:text-blue-400 transition-colors">Artist Dashboard</Link></li>
+              <li>
+                <button
+                  onClick={() => {
+                    if (user?.role === 'artist' || user?.role === 'admin') {
+                      navigate('/artist/dashboard', {
+                        state: { message: 'You have already been authorized as an artist! Welcome to your dashboard.' }
+                      });
+                    } else if (user?.role === 'customer') {
+                      navigate('/profile', {
+                        state: { message: 'You are currently logged in as a Collector. Click "Become a Creator" below to register as an artist.' }
+                      });
+                    } else {
+                      navigate('/signup?role=artist');
+                    }
+                  }}
+                  className="hover:text-blue-400 transition-colors text-left"
+                >
+                  Join as Artist
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    if (!user) {
+                      navigate('/signin');
+                    } else if (user.role === 'customer') {
+                      navigate('/profile', {
+                        state: { message: 'Please register as a Creator first before uploading artwork.' }
+                      });
+                    } else {
+                      navigate('/artist/upload');
+                    }
+                  }}
+                  className="hover:text-blue-400 transition-colors text-left"
+                >
+                  Upload Artwork
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    if (!user) {
+                      navigate('/signin');
+                    } else if (user.role === 'customer') {
+                      navigate('/profile', {
+                        state: { message: 'You are currently logged in as a Collector. Become a Creator to view the Artist Dashboard.' }
+                      });
+                    } else {
+                      navigate('/artist/dashboard');
+                    }
+                  }}
+                  className="hover:text-blue-400 transition-colors text-left"
+                >
+                  Artist Dashboard
+                </button>
+              </li>
             </ul>
           </div>
 

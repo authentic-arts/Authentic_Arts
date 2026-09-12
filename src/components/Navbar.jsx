@@ -104,8 +104,7 @@ export default function Navbar() {
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">{user.name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user.role}</p>
                     </div>
-                    <Link to="/profile" onClick={() => setProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">My Profile</Link>
-                    {user.role === 'artist' && (
+                    {(user.role === 'artist' || user.role === 'admin') && (
                       <>
                         <Link to="/artist/dashboard" onClick={() => setProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Dashboard</Link>
                         <Link to="/artist/upload" onClick={() => setProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Upload Art</Link>

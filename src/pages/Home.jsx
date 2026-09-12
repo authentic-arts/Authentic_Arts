@@ -1,10 +1,11 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ArtCard from '../components/ArtCard';
 import { ksh } from '../utils/currency';
 
 export default function Home() {
   const { user, artworks } = useAuth();
+  const navigate = useNavigate();
 
   // ⬇️ Paste your Supabase public wallpaper URL right here ⬇️
   const themeWallpaperUrl = "https://fmneiiaqwjnwcdjjeqrs.supabase.co/storage/v1/object/public/Authentic%20Arts%20Logo/Authentic_Arts_Theme.jpeg";
@@ -48,13 +49,34 @@ export default function Home() {
             A curated platform connecting collectors with original works from verified African artists. Every piece tells a story.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/collections" className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-8 py-4 rounded-xl transition-colors text-lg">
+            <Link to="/collections" className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-8 py-4 rounded-xl transition-colors text-lg text-center">
               Explore Collections
             </Link>
-            {!user && (
-              <Link to="/signup" className="bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-4 rounded-xl transition-colors text-lg border border-white/20">
+            {!user ? (
+              <button
+                onClick={() => navigate('/signup?role=artist')}
+                className="bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-4 rounded-xl transition-colors text-lg border border-white/20 text-center"
+              >
                 Join as Artist
-              </Link>
+              </button>
+            ) : (user.role === 'artist' || user.role === 'admin') ? (
+              <button
+                onClick={() => navigate('/artist/dashboard', {
+                  state: { message: 'You have already been authorized as an artist! Welcome back to your dashboard.' }
+                })}
+                className="bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-4 rounded-xl transition-colors text-lg border border-white/20 text-center"
+              >
+                Artist Dashboard
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/profile', {
+                  state: { message: 'Click "Become a Creator" below to register and start selling your art!' }
+                })}
+                className="bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-4 rounded-xl transition-colors text-lg border border-white/20 text-center"
+              >
+                Become an Artist
+              </button>
             )}
           </div>
 
@@ -160,9 +182,29 @@ export default function Home() {
           <p className="text-blue-100 text-lg mb-8">
             Join Authentic Arts to showcase your work to collectors worldwide. Keep 85% of every sale.
           </p>
-          <Link to="/signup" className="bg-white text-blue-600 font-semibold px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors text-lg">
-            Start Selling Today
-          </Link>
+          {!user ? (
+            <Link to="/signup?role=artist" className="bg-white text-blue-600 font-semibold px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors text-lg inline-block">
+              Start Selling Today
+            </Link>
+          ) : (user.role === 'artist' || user.role === 'admin') ? (
+            <button
+              onClick={() => navigate('/artist/dashboard', {
+                state: { message: 'You have already been authorized as an artist! Welcome back to your dashboard.' }
+              })}
+              className="bg-white text-blue-600 font-semibold px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors text-lg"
+            >
+              Go to Artist Dashboard
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/profile', {
+                state: { message: 'Click "Become a Creator" below to register as an artist!' }
+              })}
+              className="bg-white text-blue-600 font-semibold px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors text-lg"
+            >
+              Become an Artist
+            </button>
+          )}
         </div>
       </section>
     </div>

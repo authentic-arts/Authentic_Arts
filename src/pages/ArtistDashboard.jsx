@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { ksh, toKsh, USD_TO_KSH } from '../utils/currency';
@@ -18,8 +18,10 @@ import {
 
 export default function ArtistDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, artworks, withdrawWallet } = useAuth();
 
+  const [notification, setNotification] = useState(location.state?.message || '');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawMethod, setWithdrawMethod] = useState('mpesa');
   const [withdrawPhone, setWithdrawPhone] = useState('');
@@ -105,6 +107,28 @@ export default function ArtistDashboard() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="max-w-7xl mx-auto space-y-8">
         
+        {/* Redirect / Status Notification Banner */}
+        {notification && (
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-500/20 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg">
+                🎨
+              </div>
+              <div>
+                <p className="text-sm font-bold tracking-wide">Artist Status Active</p>
+                <p className="text-xs text-blue-100 mt-0.5">{notification}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setNotification('')}
+              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors ml-4"
+              title="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 shadow-sm">
           <div>

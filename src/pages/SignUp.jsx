@@ -1,11 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { artStyles } from '../data/constants';
 
 export default function SignUp() {
-  const { signUp } = useAuth();
+  const { user, signUp } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'artist' || user.role === 'admin') {
+        navigate('/artist/dashboard', {
+          replace: true,
+          state: { message: 'You have already been authorized as an artist! Welcome back to your dashboard.' },
+        });
+      } else {
+        navigate('/profile', {
+          replace: true,
+          state: { message: 'You are already signed in. Click "Become a Creator" below if you wish to register as an artist.' },
+        });
+      }
+    }
+  }, [user, navigate]);
 
   const [name, setName]           = useState('');
   const [email, setEmail]         = useState('');
@@ -22,7 +38,7 @@ export default function SignUp() {
   const isFormValid =
     name.trim() !== '' &&
     email.trim() !== '' &&
-    password.length >= 8 &&
+    password.length >= 6 &&
     location.trim() !== '' &&
     selectedStyles.length > 0 &&
     acceptedTerms;
@@ -56,6 +72,25 @@ export default function SignUp() {
       setEmailSent(true);
     }
   };
+
+  // ── Already authorized screen ────────────────────────────
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4 transition-colors">
+        <div className="max-w-md w-full bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-800/50 text-center space-y-4">
+          <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto text-blue-600 dark:text-blue-400 text-2xl font-bold">
+            🎨
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Already Authorized</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {user.role === 'artist' || user.role === 'admin'
+              ? 'You have already been authorized as an artist! Redirecting to your Artist Dashboard...'
+              : 'You are already logged in! Redirecting to your profile...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // ── Email confirmation sent screen ────────────────────────
   if (emailSent) {

@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { artStyles } from '../data/constants';
 import { ksh } from '../utils/currency';
 
 export default function Profile() {
   const { user, updateUser, switchToArtist, artworks } = useAuth();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
 
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [location, setLocation] = useState(user?.location || '');
   const [preferredStyles, setPreferredStyles] = useState(user?.preferredStyles || []);
   const [editing, setEditing] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(routerLocation.state?.message || '');
 
   if (!user) {
     navigate('/signin');
