@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import StarRating from '../components/StarRating';
+import RoomVisualizerModal from '../components/RoomVisualizerModal';
 import { ksh } from '../utils/currency';
 
 const framingOptions = [
@@ -38,42 +39,6 @@ const framingOptions = [
   }
 ];
 
-const rooms = [
-  {
-    id: 'living-room',
-    name: 'Modern Living Room',
-    image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1200&q=80',
-    artworkStyle: {
-      top: '38%',
-      left: '50%',
-      width: '28%',
-      transform: 'translate(-50%, -50%)',
-    }
-  },
-  {
-    id: 'bedroom',
-    name: 'Minimalist Bedroom',
-    image: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=1200&q=80',
-    artworkStyle: {
-      top: '32%',
-      left: '50%',
-      width: '22%',
-      transform: 'translate(-50%, -50%)',
-    }
-  },
-  {
-    id: 'office',
-    name: 'Cozy Office Lounge',
-    image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80',
-    artworkStyle: {
-      top: '30%',
-      left: '50%',
-      width: '24%',
-      transform: 'translate(-50%, -50%)',
-    }
-  }
-];
-
 export default function ArtworkDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -88,7 +53,6 @@ export default function ArtworkDetail() {
   const [showMagnifier, setShowMagnifier] = useState(false);
   const [showZoomModal, setShowZoomModal] = useState(false);
   const [showRoomModal, setShowRoomModal] = useState(false);
-  const [activeRoomIndex, setActiveRoomIndex] = useState(0);
   
   // Detail Zoom pan states
   const [zoomLevel, setZoomLevel] = useState(1.5);
@@ -604,94 +568,14 @@ export default function ArtworkDetail() {
       )}
 
       {/* Room Visualizer Modal */}
-      {showRoomModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-4xl w-full flex flex-col overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
-              <h3 className="font-display font-semibold text-gray-900 dark:text-white">Room Visualizer</h3>
-              <button 
-                onClick={() => setShowRoomModal(false)} 
-                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Room Wall Container */}
-            <div className="relative bg-gray-200 aspect-[16/9] w-full overflow-hidden select-none">
-              <img
-                src={rooms[activeRoomIndex].image}
-                alt={rooms[activeRoomIndex].name}
-                className="w-full h-full object-cover"
-              />
-              
-              {/* Floating Frame */}
-              <div
-                className="absolute transition-all duration-300"
-                style={{
-                  ...rooms[activeRoomIndex].artworkStyle,
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.65)'
-                }}
-              >
-                <div className={`w-full h-full transition-all duration-300 ${
-                  selectedFrame.id === 'black-frame'
-                    ? 'border-[8px] md:border-[12px] border-gray-950 bg-white p-1 md:p-2.5 shadow-inner'
-                    : selectedFrame.id === 'oak-frame'
-                    ? 'border-[8px] md:border-[12px] border-amber-800 bg-white p-1 md:p-2.5 shadow-inner'
-                    : selectedFrame.id === 'white-frame'
-                    ? 'border-[8px] md:border-[12px] border-gray-100 bg-white p-1 md:p-2.5 shadow-inner'
-                    : selectedFrame.id === 'wrap'
-                    ? 'border-[3px] border-amber-950/20 shadow-md'
-                    : 'border border-gray-300 shadow-sm'
-                }`}>
-                  <img
-                    src={artwork.image}
-                    alt={artwork.altText || artwork.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Room Switcher controls */}
-            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex flex-wrap gap-2">
-                {rooms.map((room, idx) => (
-                  <button
-                    key={room.id}
-                    onClick={() => setActiveRoomIndex(idx)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-                      activeRoomIndex === idx
-                        ? 'bg-blue-500 text-white shadow-md'
-                        : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {room.name}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Framing:</span>
-                <select
-                  value={selectedFrame.id}
-                  onChange={(e) => {
-                    const found = framingOptions.find(o => o.id === e.target.value);
-                    if (found) setSelectedFrame(found);
-                  }}
-                  className="text-xs font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-2 text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
-                >
-                  {framingOptions.map(opt => (
-                    <option key={opt.id} value={opt.id}>{opt.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <RoomVisualizerModal
+        isOpen={showRoomModal}
+        onClose={() => setShowRoomModal(false)}
+        artwork={artwork}
+        framingOptions={framingOptions}
+        selectedFrame={selectedFrame}
+        onSelectFrame={setSelectedFrame}
+      />
 
     </div>
   );
