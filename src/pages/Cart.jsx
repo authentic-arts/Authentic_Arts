@@ -9,26 +9,32 @@ export default function Cart() {
   const navigate = useNavigate();
   const { user, markPurchased } = useAuth();
   const { cartItems, removeFromCart, updateQuantity, clearCart, cartSubtotal } = useCart();
-  
+
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [confirmedPaymentInfo, setConfirmedPaymentInfo] = useState(null);
 
-  if (!user) {
-    navigate('/signin');
-    return null;
-  }
-
-  const isFirstTime = user.isFirstTimeBuyer;
+  // Safely evaluate first-time discount for signed-in users vs guests
+  const isFirstTime = Boolean(user?.isFirstTimeBuyer);
   const discountAmount = isFirstTime ? cartSubtotal * 0.2 : 0;
   const finalTotal = cartSubtotal - discountAmount;
+
+  const handleProceedToCheckout = () => {
+    if (!user) {
+      navigate('/signin');
+      return;
+    }
+    setShowCheckout(true);
+  };
 
   const handlePaymentSuccess = async (paymentResult = {}) => {
     const { paymentMethod = 'mpesa', paymentRef = null } = paymentResult;
     setConfirmedPaymentInfo({ paymentMethod, paymentRef });
-    
+
     // Pass full cart items & payment metadata so AuthContext can build the order
-    await markPurchased(cartItems, { paymentMethod, paymentRef });
+    if (markPurchased) {
+      await markPurchased(cartItems, { paymentMethod, paymentRef });
+    }
     clearCart();
     setShowCheckout(false);
     setCheckoutSuccess(true);
@@ -119,7 +125,7 @@ export default function Cart() {
                     )}
                     <p className="text-sm font-bold text-blue-600 dark:text-blue-400 mt-1">{ksh(item.price)}</p>
                   </div>
-                  
+
                   {/* Quantity adjustments */}
                   <div className="flex items-center gap-3">
                     <button
@@ -131,7 +137,7 @@ export default function Cart() {
                     <span className="font-semibold text-gray-900 dark:text-white text-sm">{item.quantity}</span>
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      disabled={item.quantity >= (item.availableQuantity || 1)} // cap at mock availability
+                      disabled={item.quantity >= (item.availableQuantity || 1)}
                       className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
                     >
                       +
@@ -154,7 +160,7 @@ export default function Cart() {
             {/* Pricing Summary */}
             <div className="lg:col-span-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 shadow-sm space-y-6">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Summary</h3>
-              
+
               <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800 pb-4">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
@@ -178,10 +184,10 @@ export default function Cart() {
               </div>
 
               <button
-                onClick={() => setShowCheckout(true)}
+                onClick={handleProceedToCheckout}
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3.5 rounded-xl text-center shadow-lg shadow-blue-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all text-sm"
               >
-                Proceed to Checkout
+                {user ? 'Proceed to Checkout' : 'Sign In to Checkout'}
               </button>
             </div>
           </div>
