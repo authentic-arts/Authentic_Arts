@@ -8,6 +8,8 @@
 | `002_rls_policies.sql`   | Row Level Security policies for every table |
 | `003_functions_and_triggers.sql` | Business-logic stored functions & triggers |
 | `004_seed_data.sql`      | Demo users, artworks, reviews, analytics |
+| `006_mpesa_payments.sql` | M-Pesa transaction log and webhook triggers |
+| `007_storage_artworks_bucket.sql` | Artwork file upload storage bucket & RLS policies |
 
 ---
 
