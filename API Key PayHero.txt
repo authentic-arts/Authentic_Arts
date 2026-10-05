@@ -1,0 +1,11 @@
+API Username
+RBKRYZmyBPBkavqnQvi0
+
+API Password
+B9WCWqX11TXzKx6eG47aSMkS6WrQAZBx1JwpGlSE
+
+Account ID
+12812
+
+Basic Auth Token
+Basic UkJLUllabXlCUEJrYXZxblF2aTA6QjlXQ1dxWDExVFh6S3g2ZUc0N2FTTWtTNldyUUFaQngxSndwR2xTRQ==

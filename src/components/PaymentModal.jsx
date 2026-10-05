@@ -35,22 +35,43 @@ export default function PaymentModal({ total, onSuccess, onClose }) {
     };
   }, []);
 
-  // Helper to clear frontend & database cart state upon verified payment
-  const clearCartData = async () => {
-    // 1. Clear local storage cart state if present
-    localStorage.removeItem('authentic_arts_cart');
-    localStorage.removeItem('cart');
+  // Helper to register purchase & clear cart state upon verified payment
+  const clearCartData = async (receiptCode) => {
+    try {
+      // 1. Get cart items from localStorage or fallback to Supabase cart_items table
+      let itemsToOrder = JSON.parse(localStorage.getItem('authentic_arts_cart') || '[]');
 
-    // 2. Clear database cart table for logged-in user
-    if (supabase && user?.id) {
-      try {
-        await supabase
+      if (user?.id && itemsToOrder.length === 0 && supabase) {
+        const { data: dbCart } = await supabase
           .from('cart_items')
-          .delete()
+          .select('artwork_id, price')
           .eq('user_id', user.id);
-      } catch (err) {
-        console.warn('Could not clear database cart items:', err);
+        if (dbCart) itemsToOrder = dbCart;
       }
+
+      if (user?.id && itemsToOrder.length > 0) {
+        // 2. Insert records into orders / purchased_artworks tables
+        const orderRows = itemsToOrder.map((item) => ({
+          user_id: user.id,
+          artwork_id: item.id || item.artwork_id,
+          amount: item.price || total,
+          payment_reference: receiptCode || 'MPESA',
+          status: 'completed',
+        }));
+
+        await supabase.from('orders').insert(orderRows);
+        await supabase.from('purchased_artworks').insert(orderRows);
+      }
+
+      // 3. Clear local storage & database cart tables
+      localStorage.removeItem('authentic_arts_cart');
+      localStorage.removeItem('cart');
+
+      if (supabase && user?.id) {
+        await supabase.from('cart_items').delete().eq('user_id', user.id);
+      }
+    } catch (err) {
+      console.warn('Order registration / cart clear warning:', err);
     }
   };
 
@@ -122,7 +143,7 @@ export default function PaymentModal({ total, onSuccess, onClose }) {
         setStep('success');
 
         // Clear cart on successful PayPal payment
-        await clearCartData();
+        await clearCartData(paypalRef);
 
         setTimeout(() => {
           onSuccess({ paymentMethod: 'paypal', paymentRef: paypalRef });
@@ -153,7 +174,7 @@ export default function PaymentModal({ total, onSuccess, onClose }) {
         setStep('success');
 
         // Clear cart on successful M-Pesa payment
-        await clearCartData();
+        await clearCartData(pollResult.receiptNumber);
 
         setTimeout(() => {
           onSuccess({
@@ -198,7 +219,7 @@ export default function PaymentModal({ total, onSuccess, onClose }) {
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">Authentic Arts Checkout</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Official Safaricom Daraja 2.0 Integration</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Secure M-Pesa Checkout</p>
             </div>
           </div>
           <button
@@ -238,8 +259,8 @@ export default function PaymentModal({ total, onSuccess, onClose }) {
                   <div
                     onClick={() => setMethod('mpesa')}
                     className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all ${method === 'mpesa'
-                        ? 'border-green-500 bg-green-50/50 dark:bg-green-950/30 shadow-sm'
-                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
+                      ? 'border-green-500 bg-green-50/50 dark:bg-green-950/30 shadow-sm'
+                      : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -262,8 +283,8 @@ export default function PaymentModal({ total, onSuccess, onClose }) {
                   <div
                     onClick={() => setMethod('paypal')}
                     className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all ${method === 'paypal'
-                        ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 shadow-sm'
-                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
+                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 shadow-sm'
+                      : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -336,8 +357,8 @@ export default function PaymentModal({ total, onSuccess, onClose }) {
                 onClick={handleInitiatePayment}
                 disabled={isProcessing}
                 className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg transition-all text-base flex items-center justify-center gap-2 ${method === 'mpesa'
-                    ? 'bg-green-600 hover:bg-green-700 shadow-green-600/25 hover:scale-[1.01] active:scale-[0.99]'
-                    : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/25 hover:scale-[1.01] active:scale-[0.99]'
+                  ? 'bg-green-600 hover:bg-green-700 shadow-green-600/25 hover:scale-[1.01] active:scale-[0.99]'
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/25 hover:scale-[1.01] active:scale-[0.99]'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {isProcessing ? (
