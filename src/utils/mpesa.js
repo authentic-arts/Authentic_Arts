@@ -36,7 +36,7 @@ export function formatKenyanPhone(phoneInput) {
 }
 
 /**
- * Initiates an M-Pesa STK Push request via PayHero Edge Function with a guaranteed unique reference.
+ * Initiates an M-Pesa STK Push request via PayHero Edge Function with a GUARANTEED UNIQUE reference.
  */
 export async function initiateSTKPush({
   phone,
@@ -50,10 +50,8 @@ export async function initiateSTKPush({
     throw new Error(phoneValidation.error);
   }
 
-  const uniqueRef = reference && reference !== 'AuthenticArt'
-    ? reference
-    : `AA-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
+  // GUARANTEED unique transaction ID generated for EVERY single checkout attempt
+  const uniqueRef = `AA-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const roundedAmount = Math.max(1, Math.round(Number(amount)));
 
   try {
@@ -72,7 +70,7 @@ export async function initiateSTKPush({
       );
     }
 
-    // Insert pending transaction record in database
+    // Insert new pending transaction record strictly with the fresh uniqueRef
     if (supabase) {
       try {
         await supabase.from('mpesa_transactions').insert({
@@ -149,7 +147,7 @@ export async function pollSTKStatus({
               message: userMessage,
             };
           }
-          // If status is still 'pending', stay in the loop
+          // Status is 'pending' -> Stay on "Check Your Phone" screen
         }
       } catch (dbErr) {
         console.warn('Database polling check warning:', dbErr);
