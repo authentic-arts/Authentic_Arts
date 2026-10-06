@@ -50,20 +50,46 @@ export default function PaymentModal({ total, onSuccess, onClose }) {
       }
 
       if (user?.id && itemsToOrder.length > 0) {
-        // 2. Insert records into orders / purchased_artworks tables
+        // 2. Prepare order rows satisfying all database schema NOT NULL constraints
         const orderRows = itemsToOrder.map((item) => ({
-          user_id: user.id,
+          customer_id: user.id,
           artwork_id: item.id || item.artwork_id,
           amount: item.price || total,
+          subtotal: item.price || total,
+          total: item.price || total,
           payment_reference: receiptCode || 'MPESA',
+          payment_method: method || 'mpesa',
           status: 'completed',
         }));
 
-        await supabase.from('orders').insert(orderRows);
-        await supabase.from('purchased_artworks').insert(orderRows);
+        // 3. Insert into orders first to acquire generated order ID(s)
+        const { data: insertedOrders, error: orderErr } = await supabase
+          .from('orders')
+          .insert(orderRows)
+          .select();
+
+        if (!orderErr && insertedOrders && insertedOrders.length > 0) {
+          // 4. Map generated order IDs to purchased_artworks records
+          const purchasedRows = insertedOrders.map((ord) => ({
+            order_id: ord.id,
+            customer_id: user.id,
+            artwork_id: ord.artwork_id,
+            amount: ord.amount,
+            subtotal: ord.subtotal || ord.amount,
+            total: ord.total || ord.amount,
+            payment_reference: ord.payment_reference,
+            payment_method: ord.payment_method || method || 'mpesa',
+            status: 'completed',
+          }));
+
+          await supabase.from('purchased_artworks').upsert(purchasedRows, {
+            onConflict: 'customer_id, artwork_id',
+            ignoreDuplicates: true,
+          });
+        }
       }
 
-      // 3. Clear local storage & database cart tables
+      // 5. Clear local storage & database cart tables
       localStorage.removeItem('authentic_arts_cart');
       localStorage.removeItem('cart');
 
