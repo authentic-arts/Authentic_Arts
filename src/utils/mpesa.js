@@ -1,160 +1,137 @@
 // src/utils/mpesa.js
-import { supabase } from '../lib/supabase.js';
+import { supabase } from '../lib/supabase';
 
 /**
- * Validates and normalises Kenyan phone numbers for M-Pesa STK Push.
+ * Clean & format Kenyan phone number to 2547XXXXXXXX or 2541XXXXXXXX
  */
-export function formatKenyanPhone(phoneInput) {
-  if (!phoneInput) {
-    return { isValid: false, formatted: '', error: 'Phone number is required' };
-  }
+export const formatKenyanPhone = (phone) => {
+  if (!phone) return { isValid: false, formatted: '', error: 'Phone number is required' };
 
-  let cleaned = String(phoneInput).replace(/[\s\-()]/g, '');
-  if (cleaned.startsWith('+')) {
+  // Remove spaces, hyphens, and non-digit characters
+  let cleaned = phone.toString().replace(/\D/g, '');
+
+  if (cleaned.startsWith('0')) {
+    cleaned = '254' + cleaned.substring(1);
+  } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
+    cleaned = '254' + cleaned;
+  } else if (cleaned.startsWith('+254')) {
     cleaned = cleaned.substring(1);
   }
 
-  if (/^0[17]\d{8}$/.test(cleaned)) {
-    cleaned = '254' + cleaned.substring(1);
-  }
+  // Verify Kenyan line length (254 + 9 digits = 12 digits)
+  const isValid = /^254[71]\d{8}$/.test(cleaned);
 
-  if (/^[17]\d{8}$/.test(cleaned)) {
-    cleaned = '254' + cleaned;
-  }
-
-  const isValid = /^254(7\d{8}|1\d{8})$/.test(cleaned);
-
-  if (!isValid) {
-    return {
-      isValid: false,
-      formatted: cleaned,
-      error: 'Please enter a valid Safaricom number (e.g. 0712345678)',
-    };
-  }
-
-  return { isValid: true, formatted: cleaned, error: null };
-}
+  return {
+    isValid,
+    formatted: cleaned,
+    error: isValid ? '' : 'Please enter a valid Kenyan number (e.g. 0712345678 or 0112345678)',
+  };
+};
 
 /**
- * Initiates an M-Pesa STK Push request via PayHero Edge Function with a GUARANTEED UNIQUE reference.
+ * Initiate STK Push via PayHero / Daraja Edge Function
  */
-export async function initiateSTKPush({
-  phone,
-  amount,
-  reference,
-  description = 'Artwork Purchase',
-  userId = null,
-}) {
-  const phoneValidation = formatKenyanPhone(phone);
-  if (!phoneValidation.isValid) {
-    throw new Error(phoneValidation.error);
-  }
-
-  // Generate a guaranteed unique reference string for every single transaction
-  const uniqueRef = reference && reference !== 'AuthenticArt'
-    ? reference
-    : `AA-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-  const roundedAmount = Math.max(1, Math.round(Number(amount)));
-
+export const initiateSTKPush = async ({ phone, amount, reference, description, userId }) => {
   try {
-    const { data, error } = await supabase.functions.invoke('mpesa', {
+    // Generate a unique fallback ID if the gateway response doesn't return one immediately
+    const uniqueReqId = `REQ_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const { data, error } = await supabase.functions.invoke('payhero-stk-push', {
       body: {
-        phone_number: phoneValidation.formatted,
-        amount: roundedAmount,
-        reference: uniqueRef,
-        description: description,
+        phone,
+        amount,
+        reference: reference || 'AuthenticArts',
+        description: description || 'Artwork Purchase',
+        user_id: userId,
+        request_id: uniqueReqId,
       },
     });
 
-    if (error || !data || data.error || data.status === false) {
-      throw new Error(
-        error?.message || data?.error || data?.message || 'Failed to initiate STK Push via PayHero'
-      );
+    if (error) {
+      throw new Error(error.message || 'Failed to trigger STK Push edge function.');
     }
 
-    // Insert pending transaction record into Supabase using the unique reference
-    if (supabase) {
-      try {
-        await supabase.from('mpesa_transactions').insert({
-          checkout_request_id: uniqueRef,
-          user_id: userId,
-          phone_number: phoneValidation.formatted,
-          amount: roundedAmount,
-          status: 'pending',
-        });
-      } catch (dbErr) {
-        console.warn('Could not record pending transaction in database:', dbErr);
-      }
-    }
+    // Extract Safaricom's CheckoutRequestID or fallback to unique generated ID
+    const checkoutRequestId = data?.checkoutRequestId || data?.CheckoutRequestID || data?.checkout_request_id || uniqueReqId;
 
     return {
       success: true,
-      checkoutRequestId: uniqueRef,
-      reference: uniqueRef,
-      customerMessage: 'STK Push sent to phone. Please enter your M-Pesa PIN.',
+      checkoutRequestId,
+      message: data?.message || 'STK Push sent successfully.',
     };
   } catch (err) {
-    console.error('STK Push Error:', err);
+    console.error('STK Initiation Error:', err);
     throw err;
   }
-}
+};
 
 /**
- * Polls Supabase DB Status until transaction is completed, cancelled, or timed out.
+ * Poll database strictly by unique checkout_request_id
  */
-export async function pollSTKStatus({
-  checkoutRequestId,
-  maxAttempts = 30,
-  intervalMs = 2000,
-  onStatusUpdate = () => { },
-}) {
+export const pollSTKStatus = async ({ checkoutRequestId, maxAttempts = 20, intervalMs = 3000, onStatusUpdate }) => {
   if (!checkoutRequestId) {
-    throw new Error('Transaction reference/CheckoutRequestID is required');
+    throw new Error('Missing checkoutRequestId for polling.');
   }
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    if (supabase) {
-      try {
-        // Query the latest record matching this unique checkout reference
-        const { data: dbTx, error } = await supabase
-          .from('mpesa_transactions')
-          .select('status, result_code, result_desc, mpesa_receipt_number')
-          .eq('checkout_request_id', checkoutRequestId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+  let attempts = 0;
 
-        if (!error && dbTx) {
-          if (dbTx.status === 'completed') {
-            return {
-              status: 'completed',
-              resultCode: 0,
-              receiptNumber: dbTx.mpesa_receipt_number || 'SUCCESS',
-              message: dbTx.result_desc || 'Payment confirmed successfully!',
-            };
-          }
+  while (attempts < maxAttempts) {
+    attempts++;
 
-          if (dbTx.status === 'failed' || dbTx.status === 'cancelled') {
-            return {
-              status: dbTx.status,
-              resultCode: dbTx.result_code || 1,
-              message: dbTx.result_desc || 'Payment was cancelled or failed.',
-            };
-          }
-        }
-      } catch (dbErr) {
-        console.warn('Database polling check warning:', dbErr);
+    if (onStatusUpdate) {
+      onStatusUpdate({
+        attempt: attempts,
+        message: `Waiting for PIN authorization (attempt ${attempts}/${maxAttempts})...`,
+      });
+    }
+
+    // Query mpesa_transactions STRICTLY by unique checkout_request_id
+    const { data: tx, error } = await supabase
+      .from('mpesa_transactions')
+      .select('*')
+      .eq('checkout_request_id', checkoutRequestId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Polling database query warning:', error);
+    }
+
+    if (tx) {
+      // 1. Success condition: status is 'completed' AND result_code is 0
+      if (tx.status === 'completed' && (tx.result_code === 0 || tx.result_code === '0')) {
+        return {
+          status: 'completed',
+          receiptNumber: tx.mpesa_receipt_number || tx.payment_reference || 'VERIFIED',
+        };
+      }
+
+      // 2. Explicit failure condition (e.g. Insufficient funds, cancelled PIN, timeout)
+      if (
+        tx.status === 'failed' ||
+        tx.status === 'cancelled' ||
+        (tx.result_code !== null && tx.result_code !== undefined && Number(tx.result_code) !== 0)
+      ) {
+        let userMessage = tx.result_desc || 'M-Pesa transaction failed.';
+
+        // Custom message mapping for standard Safaricom error codes
+        const code = Number(tx.result_code);
+        if (code === 1) userMessage = 'Insufficient M-Pesa balance to complete purchase.';
+        if (code === 1032) userMessage = 'Transaction was cancelled on phone.';
+        if (code === 1037) userMessage = 'M-Pesa prompt timed out. No PIN was entered.';
+
+        return {
+          status: code === 1032 ? 'cancelled' : 'failed',
+          message: userMessage,
+        };
       }
     }
 
-    onStatusUpdate({ attempt, status: 'polling', message: 'Waiting for PIN entry on phone...' });
+    // Wait for the configured interval before polling again
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 
   return {
     status: 'timeout',
-    resultCode: 1037,
-    message: 'We did not receive confirmation in time. If you entered your PIN, your order will update shortly.',
+    message: 'M-Pesa verification timed out. No PIN response received.',
   };
-}
+};
