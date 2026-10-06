@@ -31,36 +31,64 @@ export const formatKenyanPhone = (phone) => {
 /**
  * Initiate STK Push via PayHero / Daraja Edge Function
  */
-export const initiateSTKPush = async ({ phone, amount, reference, description, userId }) => {
-  try {
-    // Generate a unique fallback ID if the gateway response doesn't return one immediately
-    const uniqueReqId = `REQ_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+// Inside src/utils/mpesa.js
+export async function initiateSTKPush({
+  phone,
+  amount,
+  reference,
+  description = 'Artwork Purchase',
+  userId = null,
+}) {
+  const phoneValidation = formatKenyanPhone(phone);
+  if (!phoneValidation.isValid) {
+    throw new Error(phoneValidation.error);
+  }
 
-    const { data, error } = await supabase.functions.invoke('payhero-stk-push', {
+  const uniqueRef = reference && reference !== 'AuthenticArt'
+    ? reference
+    : `AA-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  const roundedAmount = Math.max(1, Math.round(Number(amount)));
+
+  try {
+    // MUST match 'mpesa' slug in Supabase Edge Functions Dashboard
+    const { data, error } = await supabase.functions.invoke('mpesa', {
       body: {
-        phone,
-        amount,
-        reference: reference || 'AuthenticArts',
-        description: description || 'Artwork Purchase',
-        user_id: userId,
-        request_id: uniqueReqId,
+        phone_number: phoneValidation.formatted,
+        amount: roundedAmount,
+        reference: uniqueRef,
+        description: description,
       },
     });
 
-    if (error) {
-      throw new Error(error.message || 'Failed to trigger STK Push edge function.');
+    if (error || !data || data.error || data.status === false) {
+      throw new Error(
+        error?.message || data?.error || data?.message || 'Failed to initiate STK Push via PayHero'
+      );
     }
 
-    // Extract Safaricom's CheckoutRequestID or fallback to unique generated ID
-    const checkoutRequestId = data?.checkoutRequestId || data?.CheckoutRequestID || data?.checkout_request_id || uniqueReqId;
+    if (supabase) {
+      try {
+        await supabase.from('mpesa_transactions').insert({
+          checkout_request_id: uniqueRef,
+          user_id: userId,
+          phone_number: phoneValidation.formatted,
+          amount: roundedAmount,
+          status: 'pending',
+        });
+      } catch (dbErr) {
+        console.warn('Could not record pending transaction in database:', dbErr);
+      }
+    }
 
     return {
       success: true,
-      checkoutRequestId,
-      message: data?.message || 'STK Push sent successfully.',
+      checkoutRequestId: uniqueRef,
+      reference: uniqueRef,
+      customerMessage: 'STK Push sent to phone. Please enter your M-Pesa PIN.',
     };
   } catch (err) {
-    console.error('STK Initiation Error:', err);
+    console.error('STK Push Error:', err);
     throw err;
   }
 };
