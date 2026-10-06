@@ -21,7 +21,7 @@ serve(async (req) => {
 
         const resData = body.response || body;
 
-        // 1. Extract both Safaricom ws_CO_ ID and external AA- reference
+        // 1. Extract Safaricom ws_CO_ ID and external AA- reference
         const checkoutReqId =
             resData.CheckoutRequestID ||
             resData.checkout_request_id ||
@@ -35,23 +35,34 @@ serve(async (req) => {
             body.external_reference ||
             body.reference;
 
-        // 2. Determine transaction status
+        // 2. Extract exact Safaricom ResultCode & ResultDesc
+        const rawResultCode =
+            resData.ResultCode ??
+            resData.result_code ??
+            body.ResultCode ??
+            body.result_code;
+
+        const resultCode = rawResultCode !== undefined && rawResultCode !== null
+            ? Number(rawResultCode)
+            : null;
+
         const statusStr = String(
-            resData.Status || body.Status || resData.status || body.status || ""
+            resData.Status || resData.status || body.Status || body.status || ""
         ).toUpperCase();
 
+        // 3. Strict success validation: ResultCode MUST be 0 AND status cannot be FAILED/CANCELLED
         const isSuccess =
-            statusStr === "SUCCESS" ||
-            statusStr === "COMPLETED" ||
-            body.success === true ||
-            resData.ResultCode === 0 ||
-            resData.result_code === 0;
+            (resultCode === 0 || resultCode === null) &&
+            statusStr !== "FAILED" &&
+            statusStr !== "CANCELLED" &&
+            statusStr !== "EXPIRED" &&
+            body.success !== false;
 
         const receipt =
             resData.MpesaReceiptNumber ||
             resData.mpesa_receipt_number ||
             body.MpesaReceiptNumber ||
-            "SUCCESS";
+            null;
 
         const desc =
             resData.ResultDesc ||
@@ -59,7 +70,7 @@ serve(async (req) => {
             body.message ||
             (isSuccess ? "Payment confirmed successfully" : "Payment failed");
 
-        // 3. Build match condition to update either ID format
+        // 4. Update mpesa_transactions by matching either CheckoutRequestID or ExternalReference
         const filters: string[] = [];
         if (checkoutReqId) filters.push(`checkout_request_id.eq.${checkoutReqId}`);
         if (externalRef) filters.push(`checkout_request_id.eq.${externalRef}`);
@@ -70,8 +81,8 @@ serve(async (req) => {
                 .from("mpesa_transactions")
                 .update({
                     status: isSuccess ? "completed" : "failed",
-                    mpesa_receipt_number: isSuccess ? receipt : null,
-                    result_code: isSuccess ? 0 : 1,
+                    mpesa_receipt_number: isSuccess ? (receipt || "SUCCESS") : null,
+                    result_code: resultCode ?? (isSuccess ? 0 : 1),
                     result_desc: desc,
                     updated_at: new Date().toISOString(),
                 })
@@ -80,10 +91,10 @@ serve(async (req) => {
             if (error) {
                 console.error("Database Update Error:", error);
             } else {
-                console.log(`Successfully updated transaction using filter: (${matchCondition})`);
+                console.log(`Updated transaction (${matchCondition}) -> status: ${isSuccess ? "completed" : "failed"}, resultCode: ${resultCode}`);
             }
         } else {
-            console.warn("No valid transaction IDs found in webhook body.");
+            console.warn("No valid transaction IDs found in webhook payload.");
         }
 
         return new Response(JSON.stringify({ success: true }), {

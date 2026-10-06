@@ -58,10 +58,16 @@ serve(async (req) => {
     const data = await res.json();
     console.log("PayHero Response Data:", JSON.stringify(data));
 
+    const isApiError = !res.ok || data.status === false || data.success === false;
+    const errorMessage = isApiError
+      ? (data.message || data.error || data.detail || `PayHero returned status ${res.status}`)
+      : null;
+
     return new Response(
       JSON.stringify({
         ...data,
-        error: res.ok ? null : (data.message || data.error || data.detail || `PayHero returned status ${res.status}`),
+        status: !isApiError,
+        error: errorMessage,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
