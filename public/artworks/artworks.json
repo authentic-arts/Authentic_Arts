@@ -1,0 +1,128 @@
+[
+  {
+    "title": "The White Lion",
+    "description": "The Presence and authority of the white lion",
+    "price": 1500,
+    "medium": "Nature",
+    "category": "Photography",
+    "stock_quantity": 10,
+    "image_filename": "WhiteLion_3.jpeg"
+  },
+  {
+    "title": "The Elephant",
+    "description": "The presence of the elephant in the jungle.",
+    "price": 1500,
+    "medium": "Nature",
+    "category": "Photography",
+    "stock_quantity": 10,
+    "image_filename": "TheElephant_7.jpeg"
+  },
+  {
+    "title": "The African Celebration Culture",
+    "description": "The Night Celebration Culture in Africa. A combination of beauty and drumming.",
+    "price": 1500,
+    "medium": "Documentary",
+    "category": "Paintings",
+    "stock_quantity": 10,
+    "image_filename": "AfricanNightCelebrations_4.jpeg"
+  },
+  {
+    "title": "African Beauty",
+    "description": "The beauty and pride of the motherland in Africa.",
+    "price": 1500,
+    "medium": "Documentary",
+    "category": "Paintings",
+    "stock_quantity": 10,
+    "image_filename": "AfricanBeauty_16.jpeg"
+  },
+  {
+    "title": "The Sunset Shores",
+    "description": "The ethereal way in which the sunset touches down above the shores.",
+    "price": 1500,
+    "medium": "Nature",
+    "category": "Photography",
+    "stock_quantity": 10,
+    "image_filename": "SunsetShores_15.jpeg"
+  },
+  {
+    "title": "Crimson Cascades",
+    "description": "A surreal landscape depicting violent waters rushing over falls under a sky saturated in deep pink and rose tones.",
+    "price": 1500,
+    "medium": "Nature",
+    "category": "Photography",
+    "stock_quantity": 10,
+    "image_filename": "CrimsonCascades_12.jpeg"
+  },
+  {
+    "title": "Golden Hour Reflections",
+    "description": "Sun rays bursting across a calm lake at twilight, casting warm reflections across the water and cloudscape.",
+    "price": 1500,
+    "medium": "Nature",
+    "category": "Photography",
+    "stock_quantity": 10,
+    "image_filename": "GoldenHourReflections_14.jpeg"
+  },
+  {
+    "title": "Tropical Twilight Haven",
+    "description": "Silhouetted palm trees standing gracefully on pink sands as a vibrant sunset glows across the tropical sky.",
+    "price": 1500,
+    "medium": "Nature",
+    "category": "Photography",
+    "stock_quantity": 10,
+    "image_filename": "TropicalTwilightHaven_6.jpeg"
+  },
+  {
+    "title": "The Blue-Eyed Kitten",
+    "description": "A close-up portrait of a cat with intense blue eyes and finely detailed fur, featuring the caption 'Eyes on the prize!'.",
+    "price": 1500,
+    "medium": "Pop Art",
+    "category": "Digital Art",
+    "stock_quantity": 10,
+    "image_filename": "TheBlueEyedKitten_11.jpeg"
+  },
+  {
+    "title": "Floral Kitten",
+    "description": "A fluffy ginger kitten sitting gracefully surrounded by vibrant yellow and white daisies.",
+    "price": 1500,
+    "medium": "Contemporary",
+    "category": "Digital Art",
+    "stock_quantity": 10,
+    "image_filename": "FloweryCat_5.jpeg"
+  },
+  {
+    "title": "Draped Elegance",
+    "description": "A classic, sculptural study of flowing fabric draped elegantly over a female silhouette in dramatic chiaroscuro.",
+    "price": 1500,
+    "medium": "Fine Art",
+    "category": "Paintings",
+    "stock_quantity": 10,
+    "image_filename": "DrapedElegance_8.jpeg"
+  },
+  {
+    "title": "Silent Indulgence",
+    "description": "A monochrome compositional study of figure and form highlighted by a vibrant crimson glass of wine.",
+    "price": 1500,
+    "medium": "Contemporary",
+    "category": "Paintings",
+    "stock_quantity": 10,
+    "image_filename": "SilentIndulgence_10.jpeg"
+  },
+  {
+    "title": "The Silent Voyager",
+    "description": "A solitary figure standing on an alien horizon under the overwhelming presence of a massive celestial body.",
+    "price": 1500,
+    "medium": "Surrealist",
+    "category": "Digital Art",
+    "stock_quantity": 10,
+    "image_filename": "SilentVoyager_13.jpeg"
+  },
+  {
+    "title": "Thomas Shelby - Game Changer",
+    "description": "A monochrome digital portrait of Thomas Shelby in his signature flat cap with a cigarette, featuring the quote 'Game changer!'",
+    "price": 1500,
+    "medium": "Pop Art",
+    "category": "Digital Art",
+    "stock_quantity": 10,
+    "image_filename": "ThomasShelby_9.jpeg"
+  }
+]
