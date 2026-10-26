@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { artCategories, artStyles } from '../data/constants';
+import { artCategories, artStyles, stickerTypes } from '../data/constants';
 import { toKsh, USD_TO_KSH } from '../utils/currency';
 import {
   uploadArtworkImage,
@@ -29,7 +29,7 @@ export default function ArtistUpload() {
   const [price, setPrice] = useState('');
   const [priceCurrency, setPriceCurrency] = useState('KSH');
   const [quantity, setQuantity] = useState('');
-  
+
   // Image handling state
   const [uploadMode, setUploadMode] = useState('file'); // 'file' | 'url'
   const [imageFile, setImageFile] = useState(null);
@@ -38,15 +38,24 @@ export default function ArtistUpload() {
   const [imageUrl, setImageUrl] = useState('');
   const [isDragging, setIsDragging] = useState(false);
 
+  // Bulk sticker upload state
+  const bulkInputRef = useRef(null);
+  const [bulkFiles, setBulkFiles] = useState([]); // [{ file, preview, name, size }]
+  const [isBulkDragging, setIsBulkDragging] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(null); // null | { current, total }
+  const [stickerDevice, setStickerDevice] = useState(stickerTypes[0]); // 'Laptop' | 'Phone'
+
+  const isStickerCategory = category === 'Stickers';
+
   const [description, setDescription] = useState('');
   const [origin, setOrigin] = useState('');
   const [authenticity, setAuthenticity] = useState('');
   const [inspiration, setInspiration] = useState('');
-  
+
   const [dimensions, setDimensions] = useState('');
   const [medium, setMedium] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
-  
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [warning, setWarning] = useState('');
@@ -144,11 +153,40 @@ export default function ArtistUpload() {
 
   const hasImage = uploadMode === 'file' ? !!imageFile : imageUrl.trim() !== '';
 
+  // Bulk file helpers
+  const addBulkFiles = async (files) => {
+    const valid = [];
+    for (const file of files) {
+      const v = validateImageFile(file);
+      if (!v.valid) continue;
+      const preview = URL.createObjectURL(file);
+      let dims = null;
+      try { const d = await getImageDimensions(file); dims = d.width > 0 ? `${d.width}×${d.height}` : null; } catch { }
+      valid.push({ file, preview, name: file.name, size: formatFileSize(file.size), dims });
+    }
+    setBulkFiles(prev => [...prev, ...valid]);
+  };
+
+  const removeBulkFile = (index) => {
+    setBulkFiles(prev => {
+      const next = [...prev];
+      if (next[index]?.preview) URL.revokeObjectURL(next[index].preview);
+      next.splice(index, 1);
+      return next;
+    });
+  };
+
+  const handleBulkDrop = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    setIsBulkDragging(false);
+    if (e.dataTransfer.files?.length) addBulkFiles(Array.from(e.dataTransfer.files));
+  };
+
   const isFormValid =
     title.trim() !== '' &&
     price !== '' &&
     quantity !== '' &&
-    hasImage &&
+    (isStickerCategory ? bulkFiles.length > 0 : hasImage) &&
     description.trim() !== '' &&
     origin.trim() !== '' &&
     authenticity.trim() !== '' &&
@@ -176,21 +214,77 @@ export default function ArtistUpload() {
     setIsSubmitting(true);
 
     try {
-      let finalImageUrl = '';
+      const priceInKsh = priceCurrency === 'USD'
+        ? Math.round(parsedPrice * USD_TO_KSH)
+        : Math.round(parsedPrice);
 
+      // ── Bulk sticker upload path ──────────────────────────────────────
+      if (isStickerCategory && bulkFiles.length > 0) {
+        setBulkProgress({ current: 0, total: bulkFiles.length });
+        let uploaded = 0;
+        const failed = [];
+        for (const item of bulkFiles) {
+          try {
+            const result = await uploadArtworkImage(item.file, user.id);
+            const itemTitle = title.trim()
+              ? `${title} – ${item.name.replace(/\.[^.]+$/, '')}`
+              : item.name.replace(/\.[^.]+$/, '');
+            await addArtwork({
+              title: itemTitle,
+              category,
+              style,
+              price: priceInKsh,
+              currency: 'KSH',
+              quantity: parsedQty,
+              image: result.url,
+              description,
+              origin,
+              authenticity,
+              inspiration,
+              dimensions: dimensions || 'Variable dimensions',
+              medium: medium || 'Vinyl sticker',
+              year: parseInt(year) || new Date().getFullYear(),
+              tags: [category.toLowerCase(), style.toLowerCase(), `sticker-${stickerDevice.toLowerCase()}`, 'sticker'],
+            });
+            uploaded++;
+          } catch {
+            failed.push(item.name);
+          }
+          setBulkProgress({ current: uploaded, total: bulkFiles.length });
+        }
+        setBulkFiles([]);
+        setBulkProgress(null);
+        if (failed.length) {
+          setWarning(`${uploaded} sticker(s) uploaded. Failed: ${failed.join(', ')}`);
+        } else {
+          setSuccess(`${uploaded} sticker${uploaded !== 1 ? 's' : ''} uploaded successfully! Pending curation review.`);
+        }
+        setTitle('');
+        setPrice('');
+        setPriceCurrency('KSH');
+        setQuantity('');
+        setDescription('');
+        setOrigin('');
+        setAuthenticity('');
+        setInspiration('');
+        setDimensions('');
+        setMedium('');
+        setStickerDevice(stickerTypes[0]);
+        setTimeout(() => navigate('/artist/dashboard'), 2500);
+        return;
+      }
+
+      // ── Single artwork upload path ─────────────────────────────────────
+      let finalImageUrl = '';
       if (uploadMode === 'file') {
         if (!imageFile) {
           setError('Please select an artwork image file.');
           setIsSubmitting(false);
           return;
         }
-
         const uploadResult = await uploadArtworkImage(imageFile, user.id);
         finalImageUrl = uploadResult.url;
-
-        if (uploadResult.warning) {
-          setWarning(uploadResult.warning);
-        }
+        if (uploadResult.warning) setWarning(uploadResult.warning);
       } else {
         if (!imageUrl.trim()) {
           setError('Please enter or select a valid image URL.');
@@ -199,11 +293,6 @@ export default function ArtistUpload() {
         }
         finalImageUrl = imageUrl.trim();
       }
-
-      // Normalize price to KSH for consistent storage
-      const priceInKsh = priceCurrency === 'USD'
-        ? Math.round(parsedPrice * USD_TO_KSH)
-        : Math.round(parsedPrice);
 
       const newArtwork = await addArtwork({
         title,
@@ -228,8 +317,6 @@ export default function ArtistUpload() {
       }
 
       setSuccess('Artwork uploaded successfully! It is now pending curation review by our administration team.');
-      
-      // Clear form
       setTitle('');
       setPrice('');
       setPriceCurrency('KSH');
@@ -243,10 +330,7 @@ export default function ArtistUpload() {
       setDimensions('');
       setMedium('');
 
-      // Redirect to artist dashboard
-      setTimeout(() => {
-        navigate('/artist/dashboard');
-      }, 2500);
+      setTimeout(() => navigate('/artist/dashboard'), 2500);
     } catch (err) {
       console.error('Failed to submit artwork:', err);
       setError(err.message || 'An unexpected error occurred during submission. Please try again.');
@@ -258,7 +342,7 @@ export default function ArtistUpload() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="max-w-3xl mx-auto bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 sm:p-10 shadow-sm space-y-8">
-        
+
         <div>
           <h1 className="text-3xl font-display font-bold text-gray-900 dark:text-white">Upload New Artwork</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -286,7 +370,7 @@ export default function ArtistUpload() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
+
             {/* Title */}
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Artwork Title *</label>
@@ -305,12 +389,34 @@ export default function ArtistUpload() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => { setCategory(e.target.value); setBulkFiles([]); }}
                 className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {artCategories.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+
+            {/* Sticker Device Sub-type */}
+            {isStickerCategory && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Device Type *</label>
+                <div className="flex gap-2">
+                  {stickerTypes.map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setStickerDevice(type)}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${stickerDevice === type
+                          ? 'bg-violet-500 text-white border-violet-500'
+                          : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:border-violet-400'
+                        }`}
+                    >
+                      {type === 'Laptop' ? '💻 Laptop' : '📱 Phone'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Style */}
             <div>
@@ -368,23 +474,22 @@ export default function ArtistUpload() {
               />
             </div>
 
-            {/* Artwork Image Upload Section */}
-            <div className="sm:col-span-2 space-y-3">
+            {/* Artwork Image Upload Section — hidden for sticker bulk uploads */}
+            {!isStickerCategory && <div className="sm:col-span-2 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Artwork Image *
                 </label>
-                
+
                 {/* Upload Mode Selector Tabs */}
                 <div className="inline-flex rounded-lg p-1 bg-gray-100 dark:bg-gray-800 text-xs">
                   <button
                     type="button"
                     onClick={() => setUploadMode('file')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${
-                      uploadMode === 'file'
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${uploadMode === 'file'
                         ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                    }`}
+                      }`}
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -394,11 +499,10 @@ export default function ArtistUpload() {
                   <button
                     type="button"
                     onClick={() => setUploadMode('url')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${
-                      uploadMode === 'url'
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${uploadMode === 'url'
                         ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                    }`}
+                      }`}
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -430,11 +534,10 @@ export default function ArtistUpload() {
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
                       onClick={() => fileInputRef.current?.click()}
-                      className={`cursor-pointer border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 ${
-                        isDragging
+                      className={`cursor-pointer border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 ${isDragging
                           ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/30 scale-[1.01]'
                           : 'border-gray-300 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/20'
-                      }`}
+                        }`}
                     >
                       <div className="flex flex-col items-center justify-center space-y-3">
                         <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner">
@@ -550,11 +653,10 @@ export default function ArtistUpload() {
                           key={img.name}
                           type="button"
                           onClick={() => setImageUrl(img.url)}
-                          className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
-                            imageUrl === img.url
+                          className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${imageUrl === img.url
                               ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
                               : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400'
-                          }`}
+                            }`}
                         >
                           {img.name}
                         </button>
@@ -580,7 +682,107 @@ export default function ArtistUpload() {
                   )}
                 </div>
               )}
-            </div>
+            </div>}
+
+            {/* ── Sticker Bulk Upload Panel ──────────────────────────────── */}
+            {isStickerCategory && (
+              <div className="sm:col-span-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Sticker Images *
+                    <span className="ml-2 text-xs text-blue-500 font-normal">Bulk upload supported</span>
+                  </label>
+                  {bulkFiles.length > 0 && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{bulkFiles.length} file{bulkFiles.length !== 1 ? 's' : ''} selected</span>
+                  )}
+                </div>
+
+                {/* Bulk drop zone */}
+                <div
+                  onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsBulkDragging(true); }}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsBulkDragging(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsBulkDragging(false); }}
+                  onDrop={handleBulkDrop}
+                  onClick={() => bulkInputRef.current?.click()}
+                  className={`cursor-pointer border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 ${isBulkDragging
+                      ? 'border-violet-500 bg-violet-50/70 dark:bg-violet-950/30 scale-[1.01]'
+                      : 'border-gray-300 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 hover:border-violet-400 dark:hover:border-violet-500 hover:bg-violet-50/20'
+                    }`}
+                >
+                  <input
+                    ref={bulkInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.length) addBulkFiles(Array.from(e.target.files));
+                      e.target.value = '';
+                    }}
+                  />
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <div className="w-14 h-14 rounded-2xl bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center shadow-inner">
+                      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        Drag &amp; drop multiple sticker files, or{' '}
+                        <span className="text-violet-500 hover:text-violet-600 underline decoration-violet-300">browse</span>
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        JPEG · PNG · WEBP · GIF — each file becomes a separate listing
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bulk progress bar */}
+                {bulkProgress && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <span>Uploading stickers…</span>
+                      <span>{bulkProgress.current} / {bulkProgress.total}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-violet-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview grid */}
+                {bulkFiles.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 mt-2">
+                    {bulkFiles.map((item, i) => (
+                      <div key={i} className="relative group rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                        <img src={item.preview} alt={item.name} className="w-full aspect-square object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeBulkFile(i); }}
+                          className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        >
+                          ×
+                        </button>
+                        <p className="text-[9px] text-gray-600 dark:text-gray-400 truncate px-1 py-0.5 bg-white/80 dark:bg-gray-900/80">{item.name}</p>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => bulkInputRef.current?.click()}
+                      className="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center text-gray-400 hover:border-violet-400 hover:text-violet-500 transition-colors text-xs gap-1"
+                    >
+                      <span className="text-2xl">+</span>
+                      <span>Add more</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Medium */}
             <div>
@@ -668,15 +870,14 @@ export default function ArtistUpload() {
             >
               Cancel
             </button>
-            
+
             <button
               type="submit"
               disabled={!isFormValid || isSubmitting}
-              className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                isFormValid && !isSubmitting
+              className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${isFormValid && !isSubmitting
                   ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20'
                   : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-              }`}
+                }`}
             >
               {isSubmitting ? (
                 <>
@@ -684,10 +885,14 @@ export default function ArtistUpload() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                   </svg>
-                  {uploadMode === 'file' ? 'Uploading Artwork & Image...' : 'Submitting Artwork...'}
+                  {isStickerCategory
+                    ? `Uploading ${bulkProgress ? `${bulkProgress.current}/${bulkProgress.total}` : ''} Stickers…`
+                    : uploadMode === 'file' ? 'Uploading Artwork & Image...' : 'Submitting Artwork...'}
                 </>
               ) : (
-                'Upload Artwork'
+                isStickerCategory
+                  ? `Upload ${bulkFiles.length > 0 ? bulkFiles.length + ' ' : ''}Sticker${bulkFiles.length !== 1 ? 's' : ''}`
+                  : 'Upload Artwork'
               )}
             </button>
           </div>

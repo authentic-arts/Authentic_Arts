@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ArtCard from '../components/ArtCard';
-import { artCategories, artStyles } from '../data/constants';
+import { artCategories, artStyles, stickerTypes } from '../data/constants';
 
 export default function Collections() {
   const { artworks } = useAuth();
@@ -15,6 +15,7 @@ export default function Collections() {
   const [sortBy, setSortBy] = useState('featured');
   const [filterBestSeller, setFilterBestSeller] = useState(searchParams.get('filter') === 'bestSeller');
   const [showFilters, setShowFilters] = useState(false);
+  const [stickerType, setStickerType] = useState(''); // '' | 'Laptop' | 'Phone'
 
   useEffect(() => {
     const cat = searchParams.get('category');
@@ -26,13 +27,18 @@ export default function Collections() {
 
   const filtered = available.filter(art => {
     if (search && !art.title.toLowerCase().includes(search.toLowerCase()) &&
-        !art.artistName.toLowerCase().includes(search.toLowerCase()) &&
-        !art.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()))) return false;
+      !art.artistName.toLowerCase().includes(search.toLowerCase()) &&
+      !art.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()))) return false;
     if (selectedCategory && art.category !== selectedCategory) return false;
     if (selectedStyle && art.style !== selectedStyle) return false;
     if (filterBestSeller && !art.bestSeller) return false;
     if (priceMin && art.price < Number(priceMin)) return false;
     if (priceMax && art.price > Number(priceMax)) return false;
+    // Sticker sub-type filter via tags
+    if (selectedCategory === 'Stickers' && stickerType) {
+      const tag = `sticker-${stickerType.toLowerCase()}`;
+      if (!art.tags?.includes(tag)) return false;
+    }
     return true;
   });
 
@@ -53,6 +59,7 @@ export default function Collections() {
     setPriceMax('');
     setFilterBestSeller(false);
     setSortBy('featured');
+    setStickerType('');
     setSearchParams({});
   };
 
@@ -162,6 +169,29 @@ export default function Collections() {
                   Clear all filters
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sticker Type Sub-filter */}
+      {selectedCategory === 'Stickers' && (
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide shrink-0">Device:</span>
+            <div className="flex gap-2">
+              {['', ...stickerTypes].map(type => (
+                <button
+                  key={type || 'all'}
+                  onClick={() => setStickerType(type)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors border ${stickerType === type
+                      ? 'bg-violet-500 text-white border-violet-500'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400 hover:text-violet-600'
+                    }`}
+                >
+                  {type === '' ? 'All Stickers' : `${type === 'Laptop' ? '💻' : '📱'} ${type}`}
+                </button>
+              ))}
             </div>
           </div>
         </div>

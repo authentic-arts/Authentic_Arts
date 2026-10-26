@@ -17,25 +17,27 @@ export default function Home() {
   // Personalized feed based on preferred styles
   const personalized = user?.preferredStyles?.length
     ? availableArtworks.filter(a =>
-        user.preferredStyles.some(s => a.style?.includes(s) || a.category?.includes(s))
-      ).slice(0, 4)
+      user.preferredStyles.some(s => a.style?.includes(s) || a.category?.includes(s))
+    ).slice(0, 4)
     : [];
 
   const categories = [
     { name: 'Paintings', icon: '🎨', color: 'from-orange-400 to-red-500' },
-    { name: 'Sculptures', icon: '🗿', color: 'from-stone-400 to-gray-600' },
     { name: 'Digital Art', icon: '💻', color: 'from-purple-400 to-indigo-600' },
     { name: 'Photography', icon: '📷', color: 'from-blue-400 to-cyan-500' },
     { name: 'Mixed Media', icon: '✨', color: 'from-pink-400 to-rose-500' },
+    { name: 'Posters', icon: '🖼️', color: 'from-yellow-400 to-amber-500' },
+    { name: 'Branding', icon: '🏷️', color: 'from-emerald-400 to-teal-600' },
+    { name: 'Stickers', icon: '🎀', color: 'from-violet-400 to-purple-600' },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">
       {/* Hero Container updated with dynamic background positioning */}
-      <section 
+      <section
         className="relative bg-cover bg-center overflow-hidden transition-all duration-300"
-        style={{ 
-          backgroundImage: `linear-gradient(to bottom right, rgba(17, 24, 39, 0.75), rgba(23, 37, 84, 0.85), rgba(17, 24, 39, 0.9)), url(${themeWallpaperUrl})` 
+        style={{
+          backgroundImage: `linear-gradient(to bottom right, rgba(17, 24, 39, 0.75), rgba(23, 37, 84, 0.85), rgba(17, 24, 39, 0.9)), url(${themeWallpaperUrl})`
         }}
       >
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-36 text-center">
@@ -99,15 +101,15 @@ export default function Home() {
       {/* Categories */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <h2 className="font-display text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">Browse by Category</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4">
           {categories.map(cat => (
             <Link
               key={cat.name}
               to={`/collections?category=${encodeURIComponent(cat.name)}`}
-              className={`bg-gradient-to-br ${cat.color} p-6 rounded-2xl text-white text-center hover:scale-105 transition-transform shadow-md`}
+              className={`bg-gradient-to-br ${cat.color} p-5 rounded-2xl text-white text-center hover:scale-105 transition-transform shadow-md`}
             >
-              <div className="text-4xl mb-2">{cat.icon}</div>
-              <p className="font-semibold text-sm">{cat.name}</p>
+              <div className="text-3xl mb-2">{cat.icon}</div>
+              <p className="font-semibold text-xs leading-tight">{cat.name}</p>
             </Link>
           ))}
         </div>

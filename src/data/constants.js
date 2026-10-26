@@ -8,5 +8,9 @@ export const artStyles = [
 ];
 
 export const artCategories = [
-  'Paintings', 'Sculptures', 'Digital Art', 'Photography', 'Mixed Media',
+  'Paintings', 'Digital Art', 'Photography', 'Mixed Media',
+  'Posters', 'Branding', 'Stickers',
 ];
+
+// Sticker device types (sub-filter within the Stickers category)
+export const stickerTypes = ['Laptop', 'Phone'];
